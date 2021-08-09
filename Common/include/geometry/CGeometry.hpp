@@ -455,7 +455,50 @@ public:
    * \param[in] marker_flag - flag of the turbomachinery boundary.
    * \return Number of span wise section.
    */
-  inline unsigned short GetnSpanWiseSections(unsigned short marker_flag) const { return nSpanWiseSections[marker_flag -1]; }
+  virtual inline unsigned short GetnSpanWiseSections(unsigned short marker_flag) const { return nSpanWiseSections[marker_flag -1]; }
+
+  virtual inline void InitializeMGTurboPointers() {
+    /*--- Initialize pointers for turbomachinery computations  ---*/
+    nSpanWiseSections       = new unsigned short[2] ();
+    SpanWiseValue           = new su2double*[2] ();
+    nSpanSectionsByMarker   = new unsigned short[nMarker] ();
+    nVertexSpan             = new long* [nMarker] ();
+    nTotVertexSpan          = new unsigned long* [nMarker] ();
+    turbovertex             = new CTurboVertex***[nMarker] ();
+    AverageTurboNormal      = new su2double**[nMarker] ();
+    AverageNormal           = new su2double**[nMarker] ();
+    AverageGridVel          = new su2double**[nMarker] ();
+    AverageTangGridVel      = new su2double*[nMarker] ();
+    SpanArea                = new su2double*[nMarker] ();
+    TurboRadius             = new su2double*[nMarker] ();
+    MaxAngularCoord         = new su2double*[nMarker] ();
+    MinAngularCoord         = new su2double*[nMarker] ();
+    MinRelAngularCoord      = new su2double*[nMarker] ();
+  }
+
+  virtual inline void InitializeMGTurboQuantities(unsigned short marker_flag) {
+    AverageTurboNormal[marker_flag]         = new su2double*[nSpanWiseSections[marker_flag] + 1];
+    AverageNormal[marker_flag]              = new su2double*[nSpanWiseSections[marker_flag] + 1];
+    AverageGridVel[marker_flag]             = new su2double*[nSpanWiseSections[marker_flag] + 1];
+    AverageTangGridVel[marker_flag]         = new su2double[nSpanWiseSections[marker_flag] + 1];
+    SpanArea[marker_flag]                   = new su2double[nSpanWiseSections[marker_flag] + 1];
+    TurboRadius[marker_flag]                = new su2double[nSpanWiseSections[marker_flag] + 1];
+    for(auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag] + 1; iSpan++) {
+      AverageTurboNormal[marker_flag][iSpan]      = new su2double[nDim];
+      AverageNormal[marker_flag][iSpan]           = new su2double[nDim];
+      AverageGridVel[marker_flag][iSpan]          = new su2double[nDim];
+    }
+    for (auto iSpan=0u; iSpan < nSpanWiseSections[marker_flag] + 1; iSpan++) {
+      AverageTangGridVel[marker_flag][iSpan]          = 0.0;
+      SpanArea[marker_flag][iSpan]                    = 0.0;
+      TurboRadius[marker_flag][iSpan]                 = 0.0;
+      for(auto iDim=0u; iDim < nDim; iDim++) {
+        AverageTurboNormal[marker_flag][iSpan][iDim]  = 0.0;
+        AverageNormal[marker_flag][iSpan][iDim]       = 0.0;
+        AverageGridVel[marker_flag][iSpan][iDim]      = 0.0;
+      }
+    }
+  }
 
   /*!
    * \brief Get number of vertices.

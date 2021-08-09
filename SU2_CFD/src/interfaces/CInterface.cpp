@@ -656,6 +656,10 @@ void CInterface::GatherAverageTurboGeoValues(CGeometry *donor_geometry, CGeometr
 
   /*--- here we made the strong assumption that the mesh zone order
    * follows the same order of the turbomachinery markers ---*/
+  // TURBOTEMP
+  cout << "donor_geometry: " << donor_geometry << endl;
+  cout << "target_geometry: " << target_geometry << endl;
+  cout << "donorZone: " << donorZone << endl;
   SetAverageTurboGeoValues(donor_geometry, target_geometry, donorZone);
 
 }

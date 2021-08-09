@@ -2175,7 +2175,7 @@ void COutput::SetTurboPerformance_Output(std::shared_ptr<CTurbomachineryPerforma
   curOuterIter = OuterIter;
   curInnerIter = InnerIter;
   stringstream TurboInOutTable, TurboPerfTable;
-  
+
   if(rank == MASTER_NODE) {
     auto BladePerformance = TurboPerf->GetBladesPerformances();
     auto nSpan = config->GetnSpan_iZones(val_iZone);
@@ -2196,6 +2196,7 @@ void COutput::SetTurboPerformance_Output(std::shared_ptr<CTurbomachineryPerforma
       TurboInOut<<" BLADE ROW INDEX "<<iZone <<"";
       TurboInOut.PrintFooter();
       // TODO: Blade Wise Printing
+      /*
       TurboInOut << "Entropy "     << BladePerformance.at(iZone).at(nSpan)->GetInletState().GetEntropy()                     << BladePerformance.at(iZone).at(nSpan)->GetOutletState().GetEntropy();
       TurboInOut << "TotEnthalpy " << BladePerformance.at(iZone).at(nSpan)->GetInletState().GetTotalEnthalpy()               << BladePerformance.at(iZone).at(nSpan)->GetOutletState().GetTotalEnthalpy();
       TurboInOut << "TotPressure " << BladePerformance.at(iZone).at(nSpan)->GetInletState().GetTotalPressure()               << BladePerformance.at(iZone).at(nSpan)->GetOutletState().GetTotalPressure();
@@ -2203,6 +2204,7 @@ void COutput::SetTurboPerformance_Output(std::shared_ptr<CTurbomachineryPerforma
       TurboInOut << "Mach "    << BladePerformance.at(iZone).at(nSpan)->GetInletState().GetMachValue()                   << BladePerformance.at(iZone).at(nSpan)->GetOutletState().GetMachValue();
       TurboInOut << "Flow Angle "  << BladePerformance.at(iZone).at(nSpan)->GetInletState().GetAbsFlowAngle()*180/PI_NUMBER  << BladePerformance.at(iZone).at(nSpan)->GetOutletState().GetAbsFlowAngle()*180/PI_NUMBER;
       TurboInOut.PrintFooter();
+      */
     }
     cout<<TurboInOutTable.str();
   }
@@ -2237,7 +2239,7 @@ void COutput::SetTurboMultiZonePerformance_Output(CTurbomachineryStagePerformanc
   auto OutState =  TurboPerf->GetBladesPerformances().at(nZone-1).at(nSpan)->GetOutletState();
 
   TurboStagePerf->ComputePerformanceStage(InState, OutState, config);
-   
+
   /*--- Print Machine Performance (In future also add if the performance is TURBINE or COMPRESSOR) ---*/
   TurboInOut<<"MACHINE"<<TurboStagePerf->GetEntropyGen()
                         <<TurboStagePerf->GetKineticEnergyLoss()

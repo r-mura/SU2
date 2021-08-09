@@ -9447,7 +9447,7 @@ void CPhysicalGeometry::Check_Periodicity(CConfig *config) {
   /*--- Check for the presence of any periodic BCs and disable multigrid
    for now if found. ---*/
 
-  if ((config->GetnMarker_Periodic() != 0) && (config->GetnMGLevels() > 0)) {
+  if ((config->GetnMarker_Periodic() != 0) && (config->GetnMGLevels() > 0) && !(config->GetBoolTurbomachinery())) {
     if (rank == MASTER_NODE)
       cout << "WARNING: Periodicity has been detected. Disabling multigrid. "<< endl;
     config->SetMGLevels(0);

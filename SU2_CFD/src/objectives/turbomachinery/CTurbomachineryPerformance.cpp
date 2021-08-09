@@ -37,7 +37,7 @@ CTurbomachineryPrimitiveState::CTurbomachineryPrimitiveState(vector<su2double> T
   Velocity = {TurboPrimitive.begin()+2, TurboPrimitive.end()};
 }
 
-CTurbomachineryCombinedPrimitiveStates::CTurbomachineryCombinedPrimitiveStates(const CTurbomachineryPrimitiveState& inletPrimitiveState, 
+CTurbomachineryCombinedPrimitiveStates::CTurbomachineryCombinedPrimitiveStates(const CTurbomachineryPrimitiveState& inletPrimitiveState,
                                         const CTurbomachineryPrimitiveState&  outletPrimitiveState) : InletPrimitiveState(inletPrimitiveState), OutletPrimitiveState(outletPrimitiveState){}
 
 CTurbomachineryState::CTurbomachineryState(){
@@ -98,7 +98,7 @@ void CTurbomachineryState::ComputeState(CFluidModel& fluidModel, const CTurbomac
 
   /*--- Compute isentropic quantities ---*/
   fluidModel.SetTDState_Ps(Pressure, Entropy);
-  
+
 }
 
 CTurbomachineryBladePerformance::CTurbomachineryBladePerformance(CFluidModel& fluidModel,
@@ -201,7 +201,7 @@ CTurbomachineryPerformance::CTurbomachineryPerformance(const CConfig& config,
       /* Switch between the Turbomachinery Performance Kind */
       // TODO: This needs to be fixed
       switch (config.GetKind_TurboPerf(iBladeRow)) {
-        
+
         case TURBO_PERF_KIND::TURBINE:
           bladeSpanPerformances.push_back(make_shared<CTurbineBladePerformance>(fluidModel, nDim, areaIn, radiusIn, areaOut,
                                                                       radiusOut));
@@ -245,12 +245,12 @@ void CTurbomachineryPerformance::ComputePerSpan(shared_ptr <CTurbomachineryBlade
 }
 
 CTurbomachineryStagePerformance::CTurbomachineryStagePerformance(CFluidModel& fluid) : fluidModel(fluid) {
-  su2double TotalStaticEfficiency=0.0, 
-            TotalTotalEfficiency=0.0, 
-            KineticEnergyLoss=0.0, 
-            TotalPressureLoss=0.0, 
-            EntropyGen=0.0, 
-            PressureRatio=0.0, 
+  su2double TotalStaticEfficiency=0.0,
+            TotalTotalEfficiency=0.0,
+            KineticEnergyLoss=0.0,
+            TotalPressureLoss=0.0,
+            EntropyGen=0.0,
+            PressureRatio=0.0,
             EulerianWork=0.0;
 }
 
@@ -261,7 +261,7 @@ void CTurbomachineryStagePerformance::ComputePerformanceStage(CTurbomachinerySta
     /* code */
     ComputeTurbineStagePerformance(InState, OutState);
     break;
-    
+
   default:
     ComputeTurbineStagePerformance(InState, OutState);
     break;
@@ -303,7 +303,7 @@ void CTurbomachineryStagePerformance::ComputeCompressorStagePerformance(CTurboma
   EulerianWork = OutState.GetTotalEnthalpy() - InState.GetTotalEnthalpy();
   TotalPressureLoss = (InState.GetTotalRelPressure() - OutState.GetTotalRelPressure()) /
                       (InState.GetTotalRelPressure() - OutState.GetPressure());
-                      
+
   KineticEnergyLoss = 2 * (OutState.GetEnthalpy() - enthalpyOutIs) / relVelOutIs2;
 
   /*--- Efficiency Computation ---*/

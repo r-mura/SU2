@@ -2291,6 +2291,8 @@ void CDriver::Interface_Preprocessing(CConfig **config, CSolver***** solver, CGe
 
       if (!CInterpolator::CheckZonesInterface(config[donor], config[target])) {
         interface_type = NO_COMMON_INTERFACE;
+        // TURBOTEMP
+        // WE HAVE A PROBLEM!!!
       }
       else {
         /*--- Begin the creation of the communication pattern among zones. ---*/
@@ -2314,6 +2316,14 @@ void CDriver::Interface_Preprocessing(CConfig **config, CSolver***** solver, CGe
 
         /*--- Turbomachinery Bool for MIXING PLANE ---*/
         const bool turbo = config[donor]->GetBoolTurbomachinery();
+
+        // TURBOTEMP
+        cout << "Target: " << target << ", Donor: " << donor << endl;
+        cout << "The interface is of type: " << interface_type << endl;
+        cout << "fluid donor: " << fluid_donor << endl;
+        cout << "fluid target :" << fluid_target << endl;
+
+        //exit(1);
 
         /*--- Initialize the appropriate transfer strategy. ---*/
 
@@ -2342,8 +2352,12 @@ void CDriver::Interface_Preprocessing(CConfig **config, CSolver***** solver, CGe
         }
         else if (fluid_donor && fluid_target) {
                 /*--- Mixing plane for turbo machinery applications. ---*/
+          cout << "!!!!!!!!!!!!!!!!!!!!" << config[donor]->GetnZone() << endl;
           if (config[donor]->GetBoolMixingPlaneInterface()) {
             interface_type = MIXING_PLANE;
+            // TURBOTEST
+            cout << "I AM HERE" << endl;
+            //exit(1);
             auto nVar = solver[donor][INST_0][MESH_0][FLOW_SOL]->GetnVar();
             interface[donor][target] = new CMixingPlaneInterface(nVar, 0);
             if (rank == MASTER_NODE) {
@@ -2390,10 +2404,27 @@ void CDriver::Interface_Preprocessing(CConfig **config, CSolver***** solver, CGe
           if (rank == MASTER_NODE) cout << "generic conservative variables." << endl;
         }
       }
+      /* TODO
+       * This should be inside the loop, but in order for the thing to work that way
+       * the mixing plane should be declared in the cfg file as a standard interface.
+       * Without doing so, CInterpolator::CheckZonesInterface(config[donor], config[target])
+       * will return false!
+       */
+      if (config[donor]->GetBoolMixingPlaneInterface()) {
+        interface_type = MIXING_PLANE;
+        auto nVar = solver[donor][INST_0][MESH_0][FLOW_SOL]->GetnVar();
+        interface[donor][target] = new CMixingPlaneInterface(nVar, 0);
+        if (rank == MASTER_NODE) {
+          cout << "Set mixing-plane interface from donor zone "
+               << donor << " to target zone " << target << "." << endl;
+        }
+      }
 
     }
 
   }
+  // TURBOTEMP
+  //exit(1);
 
 }
 
@@ -2531,26 +2562,55 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
 
   unsigned short donorZone,targetZone, nMarkerInt, iMarkerInt;
   unsigned short nSpanMax = 0;
+  auto nMesh = config[ZONE_0]->GetnMGLevels() + 1;
   bool restart   = (config[ZONE_0]->GetRestart() || config[ZONE_0]->GetRestart_Flow());
-  mixingplane = config[ZONE_0]->GetBoolMixingPlaneInterface();
+  auto mixingplane = config[ZONE_0]->GetBoolMixingPlaneInterface();
   bool discrete_adjoint = config[ZONE_0]->GetDiscrete_Adjoint();
   su2double areaIn, areaOut, nBlades, flowAngleIn, flowAngleOut;
+
+  if (rank == MASTER_NODE && mixingplane) {
+    cout << "The Mixing Plane will be used." << endl;
+  }
+  //exit(1);
 
   /*--- Create turbovertex structure ---*/
   if (rank == MASTER_NODE) cout<<endl<<"Initialize Turbo Vertex Structure." << endl;
   for (iZone = 0; iZone < nZone; iZone++) {
     if (config[iZone]->GetBoolTurbomachinery()){
-      geometry[iZone][INST_0][MESH_0]->ComputeNSpan(config[iZone], iZone, INFLOW, true);
-      geometry[iZone][INST_0][MESH_0]->ComputeNSpan(config[iZone], iZone, OUTFLOW, true);
-      if (rank == MASTER_NODE) cout <<"Number of span-wise sections in Zone "<< iZone<<": "<< config[iZone]->GetnSpanWiseSections() <<"."<< endl;
-      if (config[iZone]->GetnSpanWiseSections() > nSpanMax){
-        nSpanMax = config[iZone]->GetnSpanWiseSections();
+      // Iterate over all mesh levels (fine and multigrid coarse ones)
+      for(auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+        if (rank == MASTER_NODE) cout << "Mesh level: " << iMesh << endl;
+        //geometry[iZone][INST_0][iMesh]->SetMGLevel(iMesh);
+        //cout << "Check MG level: " << (geometry[iZone][INST_0][iMesh]->GetMGLevel() == iMesh) << endl;
+        if (iMesh == MESH_0) {
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, INFLOW, true);
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, OUTFLOW, true);
+        } else {
+          geometry[iZone][INST_0][iMesh]->InitializeMGTurboPointers();
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, INFLOW, true);
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, OUTFLOW, true);
+        }
+        if (rank == MASTER_NODE) {
+          cout << "INFLOW nSpanWiseSections: " << geometry[iZone][INST_0][iMesh]->GetnSpanWiseSections(INFLOW) << endl;
+          cout << "OUTFLOW nSpanWiseSections: " << geometry[iZone][INST_0][iMesh]->GetnSpanWiseSections(OUTFLOW) << endl;
+        }
+        if (rank == MASTER_NODE) cout <<"Number of span-wise sections in Zone "<< iZone<<": "<< config[iZone]->GetnSpanWiseSections() <<"."<< endl;
+        if (config[iZone]->GetnSpanWiseSections() > nSpanMax){
+          nSpanMax = config[iZone]->GetnSpanWiseSections();
+        }
+
+        // ???
+        //config[nZone-1]->SetnSpan_iZones(config[iZone]->GetnSpanWiseSections(), iZone);
+        config[MESH_0]->SetnSpan_iZones(config[iZone]->GetnSpanWiseSections(), iZone);
+
+        geometry[iZone][INST_0][iMesh]->SetTurboVertex(config[iZone], iZone, INFLOW, true);
+        geometry[iZone][INST_0][iMesh]->SetTurboVertex(config[iZone], iZone, OUTFLOW, true);
+
+        if (rank == MASTER_NODE) {
+          cout << "GetMarker_All_Turbomachinery INFLOW: " << config[iZone]->GetMarker_All_TurbomachineryFlag(INFLOW) << endl;
+          cout << "GetMarker_All_Turbomachinery OUTFLOW: " << config[iZone]->GetMarker_All_TurbomachineryFlag(OUTFLOW) << endl;
+        }
       }
-
-      config[nZone-1]->SetnSpan_iZones(config[iZone]->GetnSpanWiseSections(), iZone);
-
-      geometry[iZone][INST_0][MESH_0]->SetTurboVertex(config[iZone], iZone, INFLOW, true);
-      geometry[iZone][INST_0][MESH_0]->SetTurboVertex(config[iZone], iZone, OUTFLOW, true);
     }
   }
 
@@ -2565,25 +2625,35 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
 
   if (rank == MASTER_NODE) cout<<"Initialize solver containers for average quantities." << endl;
   for (iZone = 0; iZone < nZone; iZone++) {
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->InitTurboContainers(geometry[iZone][INST_0][MESH_0],config[iZone]);
+    for(auto iMesh = 0u; iMesh < nMesh; ++iMesh) { // Strictly needed?
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->InitTurboContainers(geometry[iZone][INST_0][iMesh],config[iZone]);
+    }
   }
 
 //TODO(turbo) make it general for turbo HB
   if (rank == MASTER_NODE) cout<<"Compute inflow and outflow average geometric quantities." << endl;
   for (iZone = 0; iZone < nZone; iZone++) {
-    geometry[iZone][INST_0][MESH_0]->SetAvgTurboValue(config[iZone], iZone, INFLOW, true);
-    geometry[iZone][INST_0][MESH_0]->SetAvgTurboValue(config[iZone],iZone, OUTFLOW, true);
-    geometry[iZone][INST_0][MESH_0]->GatherInOutAverageValues(config[iZone], true);
+    for(auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+        geometry[iZone][INST_0][iMesh]->SetAvgTurboValue(config[iZone], iZone, INFLOW, true);
+        geometry[iZone][INST_0][iMesh]->SetAvgTurboValue(config[iZone],iZone, OUTFLOW, true);
+        geometry[iZone][INST_0][iMesh]->GatherInOutAverageValues(config[iZone], true);
+    }
   }
 
 
   if(mixingplane){
     if (rank == MASTER_NODE) cout << "Set span-wise sections between zones on Mixing-Plane interface." << endl;
     for (donorZone = 0; donorZone < nZone; donorZone++) {
+      cout << MIXING_PLANE << endl;
+      cout << interface_types[donorZone][targetZone] << endl;
       for (targetZone = 0; targetZone < nZone; targetZone++) {
-        if (interface_types[donorZone][targetZone]==MIXING_PLANE){
-          interface[donorZone][targetZone]->SetSpanWiseLevels(config[donorZone], config[targetZone]);
-        }
+        // TURBOTEMP
+        cout << "interface_types[" << donorZone << "][" << targetZone << "] :" <<
+          interface_types[donorZone][targetZone] << endl;
+          if (targetZone != donorZone) {
+            interface[donorZone][targetZone]->SetSpanWiseLevels(config[donorZone], config[targetZone]);
+          }
+        //}
       }
     }
   }
@@ -2593,6 +2663,14 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
   // for (iZone = 0; iZone < nZone-1; iZone++) {
   //   interface[iZone][nZone-1]->GatherAverageTurboGeoValues(geometry[iZone][INST_0][MESH_0],geometry[nZone-1][INST_0][MESH_0], iZone);
   // }
+
+  // This was previously working in master and feature_turbomachinery_multigrid
+  if (rank == MASTER_NODE) cout << "Transfer average geometric quantities to zone 0." << endl;
+  for (iZone = 1; iZone < nZone; iZone++) {
+    // TURBOTEMP
+    cout << geometry[iZone][INST_0][MESH_0]->GetnSpanWiseSections(INFLOW) << endl;
+    interface[iZone][ZONE_0]->GatherAverageTurboGeoValues(geometry[iZone][INST_0][MESH_0],geometry[ZONE_0][INST_0][MESH_0], iZone);
+  }
 
   /*--- Transfer number of blade to ZONE_0 to correctly compute turbo performance---*/
   for (iZone = 1; iZone < nZone; iZone++) {
@@ -2623,31 +2701,52 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
       nMarkerInt     = config_container[donorZone]->GetnMarker_MixingPlaneInterface()/2;
       for (iMarkerInt = 1; iMarkerInt <= nMarkerInt; iMarkerInt++){
         for (targetZone = 0; targetZone < nZone; targetZone++) {
+          // TURBOTEMP
+          cout << "interface_types[" << donorZone << "][" << targetZone << "] :" <<
+            interface_types[donorZone][targetZone] << endl;
           if (interface_types[donorZone][targetZone]==MIXING_PLANE){
-            interface[donorZone][targetZone]->PreprocessAverage(geometry[donorZone][INST_0][MESH_0], geometry[targetZone][INST_0][MESH_0],
+            // NEW
+            /*for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+              interface[donorZone][targetZone]->PreprocessAverage(geometry[donorZone][INST_0][iMesh], geometry[targetZone][INST_0][iMesh],
                 config[donorZone], config[targetZone],
                 iMarkerInt);
+            }*/
+            interface[donorZone][targetZone]->PreprocessAverage(geometry[donorZone][INST_0][MESH_0], geometry[targetZone][INST_0][MESH_0],
+              config[donorZone], config[targetZone],
+              iMarkerInt);
           }
         }
       }
     }
   }
+  // TURBOTEMP
+  //exit(1);
 
   if(!restart && !discrete_adjoint){
     if (rank == MASTER_NODE) cout<<"Initialize turbomachinery solution quantities." << endl;
     for(iZone = 0; iZone < nZone; iZone++) {
+      //for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) { // Really needed?
+      //  solver[iZone][INST_0][iMesh][FLOW_SOL]->SetFreeStream_TurboSolution(config[iZone]);
+      //}
       solver[iZone][INST_0][MESH_0][FLOW_SOL]->SetFreeStream_TurboSolution(config[iZone]);
     }
   }
 
   if (rank == MASTER_NODE) cout<<"Initialize inflow and outflow average solution quantities." << endl;
   for(iZone = 0; iZone < nZone; iZone++) {
+    /*for (auto iMesh = 0u; iMesh < nMesh; iMesh++) { // Really needed?
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],INFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],OUTFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],INFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],OUTFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->GatherInOutAverageValues(config[iZone], geometry[iZone][INST_0][iMesh]);
+    }*/
     solver[iZone][INST_0][MESH_0][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],INFLOW);
     solver[iZone][INST_0][MESH_0][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],OUTFLOW);
     solver[iZone][INST_0][MESH_0][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],INFLOW);
     solver[iZone][INST_0][MESH_0][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],OUTFLOW);
     solver[iZone][INST_0][MESH_0][FLOW_SOL]->GatherInOutAverageValues(config[iZone], geometry[iZone][INST_0][MESH_0]);
-    if (rank == MASTER_NODE){
+    if (rank == MASTER_NODE) { // Doesn't need internal loop over mesh levels
       flowAngleIn = solver[iZone][INST_0][MESH_0][FLOW_SOL]->GetTurboVelocityIn(iZone, config[iZone]->GetnSpanWiseSections())[1];
       flowAngleIn /= solver[iZone][INST_0][MESH_0][FLOW_SOL]->GetTurboVelocityIn(iZone, config[iZone]->GetnSpanWiseSections())[0];
       flowAngleIn = atan(flowAngleIn)*180.0/PI_NUMBER;
@@ -3108,10 +3207,24 @@ void CTurbomachineryDriver::SetMixingPlane(unsigned short donorZone){
   unsigned short targetZone, nMarkerInt, iMarkerInt ;
   nMarkerInt     = config_container[donorZone]->GetnMarker_MixingPlaneInterface()/2;
 
+  // WARNING: There is code duplication here
+  CConfig *runtime = nullptr;
+  strcpy(runtime_file_name, "runtime.dat");
+  runtime = new CConfig(runtime_file_name, config_container[ZONE_0]);
+  auto nMesh = runtime->GetnMGLevels() + 1;
+  nMesh = 3;
+  //cout << "I am inside CTurbomachieryDriver::SetMixingPlane. Number of MG levels: " << nMesh << endl;
+  delete runtime;
+
   /* --- transfer the average value from the donorZone to the targetZone*/
-  for (iMarkerInt = 1; iMarkerInt <= nMarkerInt; iMarkerInt++){
+  for (iMarkerInt = 1; iMarkerInt <= nMarkerInt; iMarkerInt++) {
     for (targetZone = 0; targetZone < nZone; targetZone++) {
-      if (targetZone != donorZone){
+      if (targetZone != donorZone) {
+        /*for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+          interface_container[donorZone][targetZone]->AllgatherAverage(solver_container[donorZone][INST_0][iMesh][FLOW_SOL],solver_container[targetZone][INST_0][iMesh][FLOW_SOL],
+              geometry_container[donorZone][INST_0][iMesh],geometry_container[targetZone][INST_0][iMesh],
+              config_container[donorZone], config_container[targetZone], iMarkerInt );
+        }*/
         interface_container[donorZone][targetZone]->AllgatherAverage(solver_container[donorZone][INST_0][MESH_0][FLOW_SOL],solver_container[targetZone][INST_0][MESH_0][FLOW_SOL],
             geometry_container[donorZone][INST_0][MESH_0],geometry_container[targetZone][INST_0][MESH_0],
             config_container[donorZone], config_container[targetZone], iMarkerInt );
@@ -3156,10 +3269,14 @@ bool CTurbomachineryDriver::Monitor(unsigned long ExtIter) {
 
 
   /*--- Check if there is any change in the runtime parameters ---*/
+  // WARNING: There is code duplication here
   CConfig *runtime = nullptr;
   strcpy(runtime_file_name, "runtime.dat");
   runtime = new CConfig(runtime_file_name, config_container[ZONE_0]);
   runtime->SetInnerIter(ExtIter);
+  auto nMesh = runtime->GetnMGLevels() + 1;
+  nMesh = 3;
+  //cout << "I am inside CTurbomachieryDriver::Monitor. Number of MG levels: " << nMesh << endl;
   delete runtime;
 
   /*--- Update the convergence history file (serial and parallel computations). ---*/
@@ -3187,19 +3304,33 @@ bool CTurbomachineryDriver::Monitor(unsigned long ExtIter) {
             cout << endl << " Updated rotating frame grid velocities";
             cout << " for zone " << iZone << "." << endl;
           }
+          // NEW
+          /*for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+            geometry_container[iZone][INST_0][iMesh]->SetRotationalVelocity(config_container[iZone], print);
+            geometry_container[iZone][INST_0][iMesh]->SetShroudVelocity(config_container[iZone]);
+          }*/
           geometry_container[iZone][INST_0][MESH_0]->SetRotationalVelocity(config_container[iZone], print);
           geometry_container[iZone][INST_0][MESH_0]->SetShroudVelocity(config_container[iZone]);
         }
       }
 
       for (iZone = 0; iZone < nZone; iZone++) {
+        // NEW
+        /*for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+          geometry_container[iZone][INST_0][iMesh]->SetAvgTurboValue(config_container[iZone], iZone, INFLOW, false);
+          geometry_container[iZone][INST_0][iMesh]->SetAvgTurboValue(config_container[iZone],iZone, OUTFLOW, false);
+          geometry_container[iZone][INST_0][iMesh]->GatherInOutAverageValues(config_container[iZone], false);
+        }*/
         geometry_container[iZone][INST_0][MESH_0]->SetAvgTurboValue(config_container[iZone], iZone, INFLOW, false);
         geometry_container[iZone][INST_0][MESH_0]->SetAvgTurboValue(config_container[iZone],iZone, OUTFLOW, false);
         geometry_container[iZone][INST_0][MESH_0]->GatherInOutAverageValues(config_container[iZone], false);
-
       }
 
       for (iZone = 1; iZone < nZone; iZone++) {
+        // NEW
+        /*for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+          interface_container[iZone][ZONE_0]->GatherAverageTurboGeoValues(geometry_container[iZone][INST_0][iMesh],geometry_container[ZONE_0][INST_0][iMesh], iZone);
+        }*/
         interface_container[iZone][ZONE_0]->GatherAverageTurboGeoValues(geometry_container[iZone][INST_0][MESH_0],geometry_container[ZONE_0][INST_0][MESH_0], iZone);
       }
 

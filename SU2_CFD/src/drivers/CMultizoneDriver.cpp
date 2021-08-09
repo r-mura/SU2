@@ -599,6 +599,8 @@ bool CMultizoneDriver::Transfer_Data(unsigned short donorZone, unsigned short ta
     }
     case MIXING_PLANE:
     {
+      // TURBOWARNING: At the moment this code block is never reached, even if a mixing plane is in use
+
       donorSolver  = FLOW_SOL;
       targetSolver = FLOW_SOL;
 
@@ -606,18 +608,27 @@ bool CMultizoneDriver::Transfer_Data(unsigned short donorZone, unsigned short ta
 
       /* --- transfer the average value from the donorZone to the targetZone*/
       for (auto iMarkerInt = 1; iMarkerInt <= nMarkerInt; iMarkerInt++) {
-            interface_container[donorZone][targetZone]->AllgatherAverage(solver_container[donorZone][INST_0][MESH_0][FLOW_SOL],solver_container[targetZone][INST_0][MESH_0][FLOW_SOL],
+        //for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+        //    interface_container[donorZone][targetZone]->AllgatherAverage(solver_container[donorZone][INST_0][iMesh][FLOW_SOL],solver_container[targetZone][INST_0][iMesh][FLOW_SOL],
+        //        geometry_container[donorZone][INST_0][iMesh],geometry_container[targetZone][INST_0][iMesh],
+        //        config_container[donorZone], config_container[targetZone], iMarkerInt );
+        //}
+        interface_container[donorZone][targetZone]->AllgatherAverage(solver_container[donorZone][INST_0][iMesh][FLOW_SOL],solver_container[targetZone][INST_0][MESH_0][FLOW_SOL],
                 geometry_container[donorZone][INST_0][MESH_0],geometry_container[targetZone][INST_0][MESH_0],
                 config_container[donorZone], config_container[targetZone], iMarkerInt );
       }
 
       for (donorZone = 0; donorZone < nZone-1; donorZone++) {
         if (interface_types[donorZone][targetZone]==MIXING_PLANE) {
+          //for (auto iMesh = 0u; iMesh < nMesh; ++iMesh) {
+          //  interface_container[donorZone][targetZone]->GatherAverageValues(solver_container[donorZone][INST_0][iMesh][FLOW_SOL],solver_container[targetZone][INST_0][iMesh][FLOW_SOL], donorZone);
+          //  interface_container[donorZone][targetZone]->GatherAverageTurboGeoValues(geometry_container[donorZone][INST_0][iMesh],geometry_container[targetZone][INST_0][iMesh], donorZone);
+          //}
           interface_container[donorZone][targetZone]->GatherAverageValues(solver_container[donorZone][INST_0][MESH_0][FLOW_SOL],solver_container[targetZone][INST_0][MESH_0][FLOW_SOL], donorZone);
           interface_container[donorZone][targetZone]->GatherAverageTurboGeoValues(geometry_container[donorZone][INST_0][MESH_0],geometry_container[targetZone][INST_0][MESH_0], donorZone);
         }
       }
-      
+
     return UpdateMesh;
     break;
     }

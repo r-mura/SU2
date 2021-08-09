@@ -60,12 +60,22 @@ void CMixingPlaneInterface::GetDonor_Variable(CSolver *donor_solution, CGeometry
   unsigned short nDim = nVar - 2;
   bool turbulent = (donor_config->GetKind_Turb_Model() != NONE);
 
+  // TURBOWARNING: Why was this commented out?
   // iSpan = 0;
 
+  // TURBOWARNING: A segfault happens and not always reading the same array, parallelization problem expected.
   Donor_Variable[0] = donor_solution->GetAverageDensity(Marker_Donor, iSpan);
+  // TURBOTEMP
+  cout << "Donor_Variable[0]: " << Donor_Variable[0] << endl;
   Donor_Variable[1] = donor_solution->GetAveragePressure(Marker_Donor, iSpan);
+  // TURBOTEMP
+  cout << "Donor_Variable[1]: " << Donor_Variable[1] << endl;
   Donor_Variable[2] = donor_solution->GetAverageTurboVelocity(Marker_Donor, iSpan)[0];
+  // TURBOTEMP
+  cout << "Donor_Variable[2]: " << Donor_Variable[2] << endl;
   Donor_Variable[3] = donor_solution->GetAverageTurboVelocity(Marker_Donor, iSpan)[1];
+  // TURBOTEMP
+  cout << "Donor_Variable[3]: " << Donor_Variable[3] << endl;
 
   if(nDim == 3){
     Donor_Variable[4] = donor_solution->GetAverageTurboVelocity(Marker_Donor, iSpan)[2];
@@ -140,6 +150,9 @@ void CMixingPlaneInterface::SetAverageValues(CSolver *donor_solution, CSolver *t
 void CMixingPlaneInterface::SetAverageTurboGeoValues(CGeometry *donor_geometry, CGeometry *target_geometry,
                                                      unsigned short donorZone){
   unsigned short iSpan;
+
+  // TURBOTEMP
+  cout << "I am inside SetAverageTurboGeoValues" << endl;
 
   for(iSpan = 0; iSpan<nSpanMaxAllZones+1; iSpan++){
     target_geometry->SetTurboRadiusIn(donor_geometry->GetTurboRadiusIn(donorZone, iSpan), donorZone, iSpan);

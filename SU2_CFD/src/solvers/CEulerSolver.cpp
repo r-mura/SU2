@@ -9062,6 +9062,10 @@ void CEulerSolver::TurboAverageProcess(CSolver **solver, CGeometry *geometry, CC
 
   const auto nSpanWiseSections = config->GetnSpanWiseSections();
 
+  cout << "======================================" << endl;
+  cout << " TurboAverageProcess on zone " << iZone << endl;
+  cout << " TurboAverageProcess on mesh level " << geometry->GetMGLevel() << endl;
+
   for (iSpan= 0; iSpan < nSpanWiseSections + 1; iSpan++){
 
     /*--- Forces initialization for contenitors ---*/
@@ -9414,6 +9418,10 @@ void CEulerSolver::TurboAverageProcess(CSolver **solver, CGeometry *geometry, CC
               AverageDensity[iMarker][iSpan] = avgMixDensity;
               AveragePressure[iMarker][iSpan] = avgMixPressure;
               for (iDim = 0; iDim < nDim; iDim++) AverageTurboVelocity[iMarker][iSpan][iDim] = avgMixTurboVelocity[iDim];
+              // TURBOTEMP
+              for (iDim = 0; iDim < nDim; iDim++) cout << "avgMixTurboVelocity[" << iDim << "]: " << avgMixTurboVelocity[iDim] << endl;
+              cout << "avgMixDensity: " << avgMixDensity << endl;
+              cout << "avgMixPressure: " << avgMixPressure << endl;
               AverageKine[iMarker][iSpan]     = avgMixKine;
               AverageOmega[iMarker][iSpan]    = avgMixOmega;
               AverageNu[iMarker][iSpan]       = avgMixNu;
