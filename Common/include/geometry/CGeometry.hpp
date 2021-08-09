@@ -455,7 +455,139 @@ public:
    * \param[in] marker_flag - flag of the turbomachinery boundary.
    * \return Number of span wise section.
    */
-  inline unsigned short GetnSpanWiseSections(unsigned short marker_flag) const { return nSpanWiseSections[marker_flag -1]; }
+  virtual inline unsigned short GetnSpanWiseSections(unsigned short marker_flag) const { return nSpanWiseSections[marker_flag -1]; }
+
+  virtual inline void InitializeMGTurboPointers() {
+    /*--- Initialize pointers for turbomachinery computations  ---*/
+    nSpanWiseSections       = new unsigned short[2] ();
+    SpanWiseValue           = new su2double*[2] ();
+    nSpanSectionsByMarker   = new unsigned short[nMarker] ();
+    nVertexSpan             = new long* [nMarker] ();
+    nTotVertexSpan          = new unsigned long* [nMarker] ();
+    turbovertex             = new CTurboVertex***[nMarker] ();
+    AverageTurboNormal      = new su2double**[nMarker] ();
+    AverageNormal           = new su2double**[nMarker] ();
+    AverageGridVel          = new su2double**[nMarker] ();
+    AverageTangGridVel      = new su2double*[nMarker] ();
+    SpanArea                = new su2double*[nMarker] ();
+    TurboRadius             = new su2double*[nMarker] ();
+    MaxAngularCoord         = new su2double*[nMarker] ();
+    MinAngularCoord         = new su2double*[nMarker] ();
+    MinRelAngularCoord      = new su2double*[nMarker] ();
+  }
+
+  virtual inline void InitializeMGTurboQuantities(unsigned short marker_flag) {
+    AverageTurboNormal[marker_flag]         = new su2double*[nSpanWiseSections[marker_flag] + 1];
+    AverageNormal[marker_flag]              = new su2double*[nSpanWiseSections[marker_flag] + 1];
+    AverageGridVel[marker_flag]             = new su2double*[nSpanWiseSections[marker_flag] + 1];
+    AverageTangGridVel[marker_flag]         = new su2double[nSpanWiseSections[marker_flag] + 1];
+    SpanArea[marker_flag]                   = new su2double[nSpanWiseSections[marker_flag] + 1];
+    TurboRadius[marker_flag]                = new su2double[nSpanWiseSections[marker_flag] + 1];
+    for(auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag] + 1; iSpan++) {
+      AverageTurboNormal[marker_flag][iSpan]      = new su2double[nDim];
+      AverageNormal[marker_flag][iSpan]           = new su2double[nDim];
+      AverageGridVel[marker_flag][iSpan]          = new su2double[nDim];
+    }
+    for (auto iSpan=0u; iSpan < nSpanWiseSections[marker_flag] + 1; iSpan++) {
+      AverageTangGridVel[marker_flag][iSpan]          = 0.0;
+      SpanArea[marker_flag][iSpan]                    = 0.0;
+      TurboRadius[marker_flag][iSpan]                 = 0.0;
+      for(auto iDim=0u; iDim < nDim; iDim++) {
+        AverageTurboNormal[marker_flag][iSpan][iDim]  = 0.0;
+        AverageNormal[marker_flag][iSpan][iDim]       = 0.0;
+        AverageGridVel[marker_flag][iSpan][iDim]      = 0.0;
+      }
+    }
+  }
+
+  virtual inline void CopynSpanWiseSections(CGeometry *mainMesh, unsigned short marker_flag) {
+    // Note: BC markers start from 1, subctract 1 for proper indexing
+    nSpanWiseSections[marker_flag-1] = mainMesh->GetnSpanWiseSections(marker_flag);
+    //SpanWiseValue[marker_flag-1] = mainMesh->GetSpanWiseValue(marker_flag);
+  }
+
+  virtual inline void CopySpanTurboQuantities(CConfig *config, CGeometry *mainMesh, unsigned short marker_flag) {
+    for (auto iMarker = 0u; iMarker < nMarker; iMarker++) {
+      for (auto iMarkerTP=1u; iMarkerTP < config->GetnMarker_Turbomachinery()+1; iMarkerTP++) {
+        if (config->GetMarker_All_Turbomachinery(iMarker) == iMarkerTP){
+          if (config->GetMarker_All_TurbomachineryFlag(iMarker) == marker_flag) {
+            nSpanSectionsByMarker[iMarker]      = nSpanWiseSections[marker_flag-1];
+            SpanWiseValue[iMarker]              = new su2double[nSpanWiseSections[marker_flag-1]];
+            nVertexSpan[iMarker]                = new long[nSpanWiseSections[marker_flag-1]];
+            turbovertex[iMarker]                = new CTurboVertex**[nSpanWiseSections[marker_flag-1]];
+            nTotVertexSpan[iMarker]             = new unsigned long[nSpanWiseSections[marker_flag-1] + 1];
+            MaxAngularCoord[iMarker]            = new su2double[nSpanWiseSections[marker_flag-1]];
+            MinAngularCoord[iMarker]            = new su2double[nSpanWiseSections[marker_flag-1]];
+            MinRelAngularCoord[iMarker]         = new su2double[nSpanWiseSections[marker_flag-1]];
+            for(auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag-1]; iSpan++) {
+              nVertexSpan[iMarker][iSpan]        = 0;
+              turbovertex[iMarker][iSpan]        = nullptr;
+              MinAngularCoord[iMarker][iSpan]    = 10.0E+06;
+              MaxAngularCoord[iMarker][iSpan]    = -10.0E+06;
+              MinRelAngularCoord[iMarker][iSpan] = 10.0E+06;
+              SpanWiseValue[iMarker][iSpan]      = 0;
+            }
+            for(auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag-1] +1; iSpan++) {
+              nTotVertexSpan[iMarker][iSpan]     = 0;
+            }
+            for (auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag-1]; iSpan++) {
+              nVertexSpan[iMarker][iSpan] = mainMesh->GetnVertexSpan(iMarker, iSpan);
+              MinAngularCoord[iMarker][iSpan] = mainMesh->GetMinRelAngularCoord(iMarker, iSpan);
+              MaxAngularCoord[iMarker][iSpan] = mainMesh->GetMaxAngularCoord(iMarker, iSpan);
+              MinRelAngularCoord[iMarker][iSpan] = mainMesh->GetMinRelAngularCoord(iMarker, iSpan);
+              // CHECK: Why does GetSpanWiseValue return SpanWiseValue[marker_flag-1]?
+              SpanWiseValue[iMarker][iSpan] = mainMesh->GetSpanWiseValue(iMarker-1)[iSpan];
+            }
+          }
+        }
+      }
+    }
+  }
+
+   virtual inline void CopySpanAvgTurboQuantities(CConfig *config, CGeometry *mainMesh, unsigned short marker_flag) {
+     for (auto iMarker = 0u; iMarker < nMarker; iMarker++) {
+      for (auto iMarkerTP=1u; iMarkerTP < config->GetnMarker_Turbomachinery()+1; iMarkerTP++) {
+        if (config->GetMarker_All_Turbomachinery(iMarker) == iMarkerTP){
+          if (config->GetMarker_All_TurbomachineryFlag(iMarker) == marker_flag) {
+            AverageTurboNormal[iMarker]         = new su2double*[nSpanWiseSections[marker_flag-1] + 1];
+            AverageNormal[iMarker]              = new su2double*[nSpanWiseSections[marker_flag-1] + 1];
+            AverageGridVel[iMarker]             = new su2double*[nSpanWiseSections[marker_flag-1] + 1];
+            AverageTangGridVel[iMarker]         = new su2double[nSpanWiseSections[marker_flag-1] + 1];
+            SpanArea[iMarker]                   = new su2double[nSpanWiseSections[marker_flag-1] + 1];
+            TurboRadius[iMarker]                = new su2double[nSpanWiseSections[marker_flag-1] + 1];
+            for(auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag-1] + 1; iSpan++) {
+              AverageTurboNormal[iMarker][iSpan]      = new su2double[nDim];
+              AverageNormal[iMarker][iSpan]           = new su2double[nDim];
+              AverageGridVel[iMarker][iSpan]          = new su2double[nDim];
+            }
+            for (auto iSpan=0u; iSpan < nSpanWiseSections[marker_flag-1] + 1; iSpan++) {
+              AverageTangGridVel[iMarker][iSpan]          = 0.0;
+              SpanArea[iMarker][iSpan]                    = 0.0;
+              TurboRadius[iMarker][iSpan]                 = 0.0;
+              for(auto iDim=0u; iDim < nDim; iDim++) {
+                AverageTurboNormal[iMarker][iSpan][iDim]  = 0.0;
+                AverageNormal[iMarker][iSpan][iDim]       = 0.0;
+                AverageGridVel[iMarker][iSpan][iDim]      = 0.0;
+              }
+            }
+            for (auto iSpan = 0u; iSpan < nSpanWiseSections[marker_flag-1]; iSpan++) {
+              nVertexSpan[iMarker][iSpan] = mainMesh->GetnVertexSpan(iMarker, iSpan);
+              AverageTangGridVel[iMarker][iSpan] = mainMesh->GetAverageTangGridVel(iMarker, iSpan);
+              MinAngularCoord[iMarker][iSpan] = mainMesh->GetMinRelAngularCoord(iMarker, iSpan);
+              MaxAngularCoord[iMarker][iSpan] = mainMesh->GetMaxAngularCoord(iMarker, iSpan);
+              MinRelAngularCoord[iMarker][iSpan] = mainMesh->GetMinRelAngularCoord(iMarker, iSpan);
+              TurboRadius[iMarker][iSpan] = mainMesh->GetTurboRadius(iMarker, iSpan);
+              for(auto iDim=0u; iDim < nDim; iDim++) {
+                AverageGridVel[iMarker][iSpan][iDim] = mainMesh->GetAverageGridVel(iMarker, iSpan)[iDim];
+                AverageNormal[iMarker][iSpan][iDim] = mainMesh->GetAverageNormal(iMarker, iSpan)[iDim];
+                AverageTurboNormal[iMarker][iSpan][iDim] = mainMesh->GetAverageTurboNormal(iMarker, iSpan)[iDim];
+              }
+            }
+          }
+        }
+      }
+    }
+   }
 
   /*!
    * \brief Get number of vertices.
@@ -1295,7 +1427,7 @@ public:
    * \param[in] val_span - span value.
    * \return The span-wise averaged turbo normal.
    */
-  inline const su2double* GetAverageTurboNormal(unsigned short val_marker, unsigned short val_span) const {
+  inline su2double* GetAverageTurboNormal(unsigned short val_marker, unsigned short val_span) const {
     return AverageTurboNormal[val_marker][val_span];
   }
 

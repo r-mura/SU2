@@ -163,5 +163,22 @@ public:
    */
   void FindNormal_Neighbor(CConfig *config) override;
 
+  /*!
+   * \brief Set number of span wise level for turbomachinery computation.
+   * \param[in] config - Definition of the particular problem.
+   */
+  void ComputeNSpan(CConfig *config, unsigned short val_iZone, unsigned short marker_flag, bool allocate) override;
+
+   /*!
+   * \brief Set turbo boundary vertex.
+   * \param[in] config - Definition of the particular problem.
+   */
+  void SetTurboVertex(CConfig *config,unsigned short val_iZone, unsigned short marker_flag, bool allocate) override;
+
+  /*!
+   * \brief Set turbo boundary vertex.
+   * \param[in] config - Definition of the particular problem.
+   */
+  void SetAvgTurboValue(CConfig *config, unsigned short val_iZone, unsigned short marker_flag, bool allocate) override;
 };
 

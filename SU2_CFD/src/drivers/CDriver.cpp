@@ -2724,20 +2724,58 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
 
   /*--- Create turbovertex structure ---*/
   if (rank == MASTER_NODE) cout<<endl<<"Initialize Turbo Vertex Structure." << endl;
-  for (iZone = 0; iZone < nZone; iZone++) {
+  for (auto iZone = 0u; iZone < nZone; iZone++) {
+    if (rank == MASTER_NODE) cout << "Zone index: " << iZone << endl;
     if (config[iZone]->GetBoolTurbomachinery()){
-      for(iMesh = 0; iMesh> nMesh; iMesh++){
-        geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, INFLOW, true);
-        geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, OUTFLOW, true);
-        if (rank == MASTER_NODE) cout <<"Number of span-wise sections in Zone "<< iZone<<": "<< config[iZone]->GetnSpanWiseSections() <<"."<< endl;
+      for(auto iMesh = 0u; iMesh <= nMesh; iMesh++) {
+        if (rank == MASTER_NODE) cout << "Mesh level: " << iMesh << endl;
+        //geometry[iZone][INST_0][iMesh]->SetMGLevel(iMesh);
+        //cout << "Check MG level: " << (geometry[iZone][INST_0][iMesh]->GetMGLevel() == iMesh) << endl;
+        if (iMesh == MESH_0) {
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, INFLOW, true);
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, OUTFLOW, true);
+        } else {
+          geometry[iZone][INST_0][iMesh]->InitializeMGTurboPointers();
+          //geometry[iZone][INST_0][iMesh]->InitializeMGTurboQuantities(INFLOW);
+          //geometry[iZone][INST_0][iMesh]->InitializeMGTurboQuantities(OUTFLOW);
+
+          //geometry[iZone][INST_0][iMesh]->CopynSpanWiseSections(geometry[iZone][INST_0][MESH_0],INFLOW);
+          //geometry[iZone][INST_0][iMesh]->CopynSpanWiseSections(geometry[iZone][INST_0][MESH_0],OUTFLOW);
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, INFLOW, true);
+          geometry[iZone][INST_0][iMesh]->ComputeNSpan(config[iZone], iZone, OUTFLOW, true);
+        }
+        if (rank == MASTER_NODE) {
+          cout << "INFLOW nSpanWiseSections: " << geometry[iZone][INST_0][iMesh]->GetnSpanWiseSections(INFLOW) << endl;
+          cout << "OUTFLOW nSpanWiseSections: " << geometry[iZone][INST_0][iMesh]->GetnSpanWiseSections(OUTFLOW) << endl;
+        }
+        //if (rank == MASTER_NODE) cout <<"Number of span-wise sections in Zone "<< iZone<<": "<< config[iZone]->GetnSpanWiseSections() <<"."<< endl;
         if (config[iZone]->GetnSpanWiseSections() > nSpanMax){
           nSpanMax = config[iZone]->GetnSpanWiseSections();
         }
 
+        // Why config[ZONE_0] instead of config[iZone]?
         config[ZONE_0]->SetnSpan_iZones(config[iZone]->GetnSpanWiseSections(), iZone);
 
-        geometry[iZone][INST_0][iMesh]->SetTurboVertex(config[iZone], iZone, INFLOW, true);
-        geometry[iZone][INST_0][iMesh]->SetTurboVertex(config[iZone], iZone, OUTFLOW, true);
+        if (iMesh == iMesh) { // Change to (iMesh == MESH_0) for only copying data structures
+          geometry[iZone][INST_0][iMesh]->SetTurboVertex(config[iZone], iZone, INFLOW, true);
+          geometry[iZone][INST_0][iMesh]->SetTurboVertex(config[iZone], iZone, OUTFLOW, true);
+          /*if (iMesh == 2) {
+            for (auto iSpan = 0u; iSpan < geometry[iZone][INST_0][iMesh]->GetnSpanWiseSections(INFLOW); iSpan++ ) {
+              cout << "INFLOW nTotVertexSpan[" << iSpan <<"]: " << geometry[iZone][INST_0][iMesh]->GetnTotVertexSpan(INFLOW, iSpan) << endl;
+            }
+            for (auto iSpan = 0u; iSpan < geometry[iZone][INST_0][iMesh]->GetnSpanWiseSections(OUTFLOW); iSpan++ ) {
+              cout << "INFLOW nTotVertexSpan[" << iSpan << "]: " << geometry[iZone][INST_0][iMesh]->GetnTotVertexSpan(OUTFLOW, iSpan) << endl;
+            }
+          }*/
+        } else {
+          geometry[iZone][INST_0][iMesh]->CopySpanTurboQuantities(config[iZone], geometry[iZone][INST_0][MESH_0], INFLOW);
+          geometry[iZone][INST_0][iMesh]->CopySpanTurboQuantities(config[iZone], geometry[iZone][INST_0][MESH_0], OUTFLOW);
+        }
+
+        if (rank == MASTER_NODE) {
+          cout << "GetMarker_All_Turbomachinery INFLOW: " << config[iZone]->GetMarker_All_TurbomachineryFlag(INFLOW) << endl;
+          cout << "GetMarker_All_Turbomachinery OUTFLOW: " << config[iZone]->GetMarker_All_TurbomachineryFlag(OUTFLOW) << endl;
+        }
       }
     }
   }
@@ -2753,15 +2791,24 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
 
   if (rank == MASTER_NODE) cout<<"Initialize solver containers for average and performance quantities." << endl;
   for (iZone = 0; iZone < nZone; iZone++) {
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->InitTurboContainers(geometry[iZone][INST_0][MESH_0],config[iZone]);
+    for(auto iMesh = 0u; iMesh <= nMesh; iMesh++) { // Strictly needed?
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->InitTurboContainers(geometry[iZone][INST_0][iMesh],config[iZone]);
+    }
   }
 
 //TODO(turbo) make it general for turbo HB
   if (rank == MASTER_NODE) cout<<"Compute inflow and outflow average geometric quantities." << endl;
   for (iZone = 0; iZone < nZone; iZone++) {
-    geometry[iZone][INST_0][MESH_0]->SetAvgTurboValue(config[iZone], iZone, INFLOW, true);
-    geometry[iZone][INST_0][MESH_0]->SetAvgTurboValue(config[iZone],iZone, OUTFLOW, true);
-    geometry[iZone][INST_0][MESH_0]->GatherInOutAverageValues(config[iZone], true);
+    for(auto iMesh = 0u; iMesh <= nMesh; iMesh++) {
+      if (iMesh == iMesh) { // Change to (iMesh == MESH_0) for only copying data structures
+        geometry[iZone][INST_0][iMesh]->SetAvgTurboValue(config[iZone], iZone, INFLOW, true);
+        geometry[iZone][INST_0][iMesh]->SetAvgTurboValue(config[iZone],iZone, OUTFLOW, true);
+        geometry[iZone][INST_0][iMesh]->GatherInOutAverageValues(config[iZone], true);
+      } else {
+        geometry[iZone][INST_0][iMesh]->CopySpanAvgTurboQuantities(config[iZone], geometry[iZone][INST_0][MESH_0], INFLOW);
+        geometry[iZone][INST_0][iMesh]->CopySpanAvgTurboQuantities(config[iZone], geometry[iZone][INST_0][MESH_0], OUTFLOW);
+      }
+    }
   }
 
 
@@ -2788,7 +2835,7 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
   }
 
   if (rank == MASTER_NODE){
-    for (iZone = 0; iZone < nZone; iZone++) {
+    for (iZone = 0; iZone < nZone; iZone++) { // Doesn't need internal loop over mesh levels
     areaIn  = geometry[iZone][INST_0][MESH_0]->GetSpanAreaIn(iZone, config[iZone]->GetnSpanWiseSections());
     areaOut = geometry[iZone][INST_0][MESH_0]->GetSpanAreaOut(iZone, config[iZone]->GetnSpanWiseSections());
     nBlades = config[iZone]->GetnBlades(iZone);
@@ -2818,18 +2865,22 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
   if(!restart && !discrete_adjoint){
     if (rank == MASTER_NODE) cout<<"Initialize turbomachinery solution quantities." << endl;
     for(iZone = 0; iZone < nZone; iZone++) {
-      solver[iZone][INST_0][MESH_0][FLOW_SOL]->SetFreeStream_TurboSolution(config[iZone]);
+      for (auto iMesh = 0u; iMesh < nMesh; iMesh++) { // Really needed?
+        solver[iZone][INST_0][iMesh][FLOW_SOL]->SetFreeStream_TurboSolution(config[iZone]);
+      }
     }
   }
 
   if (rank == MASTER_NODE) cout<<"Initialize inflow and outflow average solution quantities." << endl;
   for(iZone = 0; iZone < nZone; iZone++) {
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],INFLOW);
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],OUTFLOW);
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],INFLOW);
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][MESH_0], geometry[iZone][INST_0][MESH_0],config[iZone],OUTFLOW);
-    solver[iZone][INST_0][MESH_0][FLOW_SOL]->GatherInOutAverageValues(config[iZone], geometry[iZone][INST_0][MESH_0]);
-    if (rank == MASTER_NODE){
+    for (auto iMesh = 0u; iMesh < nMesh; iMesh++) { // Really needed?
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],INFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->PreprocessAverage(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],OUTFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],INFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->TurboAverageProcess(solver[iZone][INST_0][iMesh], geometry[iZone][INST_0][iMesh],config[iZone],OUTFLOW);
+      solver[iZone][INST_0][iMesh][FLOW_SOL]->GatherInOutAverageValues(config[iZone], geometry[iZone][INST_0][iMesh]);
+    }
+    if (rank == MASTER_NODE) { // Doesn't need internal loop over mesh levels
       flowAngleIn = solver[iZone][INST_0][MESH_0][FLOW_SOL]->GetTurboVelocityIn(iZone, config[iZone]->GetnSpanWiseSections())[1];
       flowAngleIn /= solver[iZone][INST_0][MESH_0][FLOW_SOL]->GetTurboVelocityIn(iZone, config[iZone]->GetnSpanWiseSections())[0];
       flowAngleIn = atan(flowAngleIn)*180.0/PI_NUMBER;
@@ -2838,7 +2889,6 @@ void CDriver::Turbomachinery_Preprocessing(CConfig** config, CGeometry**** geome
       flowAngleOut /= solver[iZone][INST_0][MESH_0][FLOW_SOL]->GetTurboVelocityOut(iZone, config[iZone]->GetnSpanWiseSections())[0];
       flowAngleOut = atan(flowAngleOut)*180.0/PI_NUMBER;
       cout << "Outlet flow angle for Row "<< iZone + 1<< ": "<< flowAngleOut <<"°."  <<endl;
-
     }
   }
 
